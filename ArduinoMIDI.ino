@@ -25,29 +25,23 @@
 
 LiquidCrystal lcd(3, 2, 4, 5, 6, 7);
 
-int KeyboardInput  = 0;
-
-#define btnRIGHT  0
-#define btnUP     1
-#define btnDOWN   2
-#define btnLEFT   3
-#define btnSELECT 4
-#define btnNONE   5
-
+int KeyboardInput = 0;
+#define KbdPin     A0
+#define btnRIGHT    0
+#define btnUP       1
+#define btnDOWN     2
+#define btnLEFT     3
+#define btnSELECT   4
+#define btnNONE     5
 
 USB  Usb;
 MIDI  Midi(&Usb);
 
 byte Preset;
 
-
 void setup()
 {
-//  Workaround for non UHS2.0 Shield 
-//  pinMode(7,OUTPUT);
-//  digitalWrite(7,HIGH);
-
-  lcd.begin(16, 2);              // start the library
+  lcd.begin(16, 2);                  // start the library
   if (Usb.Init() == -1) 
   {
     lcd.clear();
@@ -69,49 +63,50 @@ void setup()
   lcd.print("Current Patch   ");
   lcd.setCursor(0,1);
   lcd.print("Go to patch     ");
-  DisplayGoTo(Preset-1);
-  DisplayPatch(Preset-1);
+  DisplayAtLine(Preset,0);
+  DisplayAtLine(Preset,1);
 }
+
 
 void loop()
 {
-  switch (read_LCD_buttons())
+  switch (read_LCD_buttons())        // Read if a button is pressed
   {
-    case btnLEFT:          
+    case btnLEFT:                    // LEFT: Choose the previous patch
       Preset-=1;
       if (Preset<1)
         Preset=100;
-      DisplayGoTo(Preset-1);
+      DisplayAtLine(Preset,1);
       delay(100);
       break;
-    case btnRIGHT:
+    case btnRIGHT:                   // RIGHT: Choose the next patch
       Preset+=1;
       if (Preset>100)
         Preset=1;
-      DisplayGoTo(Preset-1);
+      DisplayAtLine(Preset,1);
       delay(100);
       break;
-    case btnSELECT:
-      SendMIDI(Preset-1);
-      DisplayPatch(Preset-1);
+    case btnSELECT:                  // SELECT: Activate the current patch
+      SendMIDI(Preset);
+      DisplayAtLine(Preset,0);
       delay(100);
       break;
-    case btnDOWN:
+    case btnDOWN:                    // DOWN: Activate the previous patch
       Preset-=1;
       if (Preset<1)
         Preset=100;
-      SendMIDI(Preset-1);
-      DisplayGoTo(Preset-1);
-      DisplayPatch(Preset-1);
+      SendMIDI(Preset);
+      DisplayAtLine(Preset,0);
+      DisplayAtLine(Preset,1);
       delay(100);   
       break;
-    case btnUP:
+    case btnUP:                       // UP: Activate the next patch
       Preset+=1;
       if (Preset>100)
         Preset=1;
-      SendMIDI(Preset-1);
-      DisplayGoTo(Preset-1);
-      DisplayPatch(Preset-1);
+      SendMIDI(Preset);
+      DisplayAtLine(Preset,0);
+      DisplayAtLine(Preset,1);
       delay(100);   
       break;
   }
@@ -122,48 +117,41 @@ void loop()
 
 void SendMIDI(byte number)
 {
+  number-=1;                         // Change 1 to 0, 100 to 99.
   Usb.Task();
   if( Usb.getUsbTaskState() == USB_STATE_RUNNING )
   { 
-    byte Message[2];
-    Message[0]=0xC0;
-    Message[1]=number;
-    Midi.SendData(Message);
+    byte Message[2];                 // Construct the midi message (2 bytes)
+    Message[0]=0xC0;                 // 0xC0 is for Program Change (Change to MIDI channel 0)
+    Message[1]=number;               // Number is the program/patch (Only 0 to 99 is valid for ZOOM G3)
+    Midi.SendData(Message);          // Send the message
     delay(10); 
   } 
 }
 
 
-void DisplayGoTo(byte number)
+void DisplayAtLine(byte number, byte line)
 {
-  byte first = number/10;
-  byte second = number % 10;
-  lcd.setCursor(14,1);
-  lcd.print(char(65+first));
-  lcd.print(second);    
+  number-=1;                         // Change 1 to 0, 100 to 99.  
+  byte first = number/10;            // Get the first digit
+  byte second = number % 10;         // Get the second digit
+  lcd.setCursor(14,line);
+  lcd.print(char(65+first));         // Print the char (A to J for 0-9)
+  lcd.print(second);                 // Print the second digit
 }
 
-
-void DisplayPatch(byte number)
-{
-  byte first = number/10;
-  byte second = number % 10;
-  lcd.setCursor(14,0);
-  lcd.print(char(65+first));
-  lcd.print(second);    
-}
 
 
 int read_LCD_buttons()
 {
- KeyboardInput = analogRead(0);      // read the value from the sensor
- // my buttons when read are centered at these valies: 0, 131, 306, 478, 720
- // we add approx 50 to those values and check to see if we are close
- if (KeyboardInput > 1000) return btnNONE; // We make this the 1st option for speed reasons since it will be the most likely result
+ KeyboardInput = analogRead(KbdPin); // Read the value from the keyboard
+                                     // Buttons when read are centered at these valies: 0, 131, 306, 478, 720
+                                     // We add approx 50 to those values and check to see if we are close
+ if (KeyboardInput > 1000) return btnNONE;     // We make this the 1st option for speed reasons since it will be the most likely result
  if (KeyboardInput < 50)   return btnRIGHT; 
  if (KeyboardInput < 185)  return btnUP;
  if (KeyboardInput < 360)  return btnDOWN;
  if (KeyboardInput < 530)  return btnLEFT;
  if (KeyboardInput < 770)  return btnSELECT;  
- return btnNONE;  // when all others fail, return this...
+ return btnNONE;                     // When all others fail, return this...
 }
