@@ -10,6 +10,9 @@
 // To Do:
 // - Too bored to write down my TO-DO list... :)
 //
+// Please, when you copy & paste the code and share it on the internet,
+// just say a thank you :-)
+//
 
 #include <Usb.h>
 #include <usbhub.h>
